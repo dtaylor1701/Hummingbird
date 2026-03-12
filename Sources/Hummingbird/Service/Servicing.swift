@@ -134,7 +134,7 @@ public final class ServiceProvider: @unchecked Sendable {
 
 /// A property wrapper that provides easy access to registered services.
 @propertyWrapper
-public struct Service<T: Servicing> {
+public struct Service<T: Servicing>: Sendable {
     private let provider: ServiceProvider
     
     public var wrappedValue: T.Service {
