@@ -77,11 +77,58 @@ struct HummingbirdTests {
         let db = provider.resolve(Database.self)
         #expect(repo.db === db)
     }
+    
+    @Test func protocolImplementationSwapping() throws {
+        let provider = ServiceProvider()
+        
+        protocol Storage: Sendable {
+            func save(_ data: String)
+        }
+        
+        struct MockStorage: Storage {
+            func save(_ data: String) { print("Mock save: \(data)") }
+        }
+        
+        struct RealStorage: Storage {
+            func save(_ data: String) { print("Real save: \(data)") }
+        }
+        
+        // Register mock
+        provider.registerSingleton((any Storage).self) { _ in MockStorage() }
+        let storage1 = provider.resolve((any Storage).self)
+        #expect(storage1 is MockStorage)
+        
+        // Register real (overwrites)
+        provider.registerSingleton((any Storage).self) { _ in RealStorage() }
+        let storage2 = provider.resolve((any Storage).self)
+        #expect(storage2 is RealStorage)
+    }
+    
+    @Test func protocolsWithAssociatedTypes() throws {
+        let provider = ServiceProvider()
+        
+        protocol PATRepository<T>: Sendable {
+            associatedtype T
+            func fetch() -> [T]
+        }
+        
+        struct UserRepository: PATRepository {
+            typealias T = String
+            func fetch() -> [String] { ["User1", "User2"] }
+        }
+        
+        provider.registerSingleton((any PATRepository<String>).self) { _ in
+            UserRepository()
+        }
+        
+        let resolved = provider.resolve((any PATRepository<String>).self)
+        #expect(resolved.fetch() == ["User1", "User2"])
+    }
 }
 
 // MARK: - Test Helpers
 
-class MyService: Servicing {
+class MyService: Servicing, @unchecked Sendable {
     typealias Service = MyService
     func service(using provider: ServiceProvider) -> MyService {
         return self
@@ -89,22 +136,21 @@ class MyService: Servicing {
 }
 
 class ServiceConsumer {
-    @Service<MyService>
-    var myService: MyService
+    @Service var myService: MyService
     
     init(provider: ServiceProvider) {
-        self._myService = Service<MyService>(provider: provider)
+        self._myService = Service(provider: provider)
     }
 }
 
-class Database: Servicing {
+class Database: Servicing, @unchecked Sendable {
     typealias Service = Database
     func service(using provider: ServiceProvider) -> Database {
         return self
     }
 }
 
-class Repository: Servicing {
+class Repository: Servicing, @unchecked Sendable {
     typealias Service = Repository
     let db: Database
     

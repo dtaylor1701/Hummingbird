@@ -15,7 +15,7 @@ The `Servicing` protocol defines a standard interface for any component that act
 A central registry that manages the lifecycle and resolution of services within your application. It supports both **Singleton** (shared instance) and **Transient** (new instance per request) lifecycles.
 
 ### @Service Property Wrapper
-A convenient way to inject dependencies into your classes or structures. By using the `@Service` property wrapper, you can access registered services without manual boilerplate.
+A convenient way to inject dependencies into your classes or structures. By using the `@Service` property wrapper, you can access registered services directly by their type.
 
 ## Installation
 
@@ -33,18 +33,16 @@ dependencies: [
 
 ### 1. Define a Service
 
-Define a service by conforming to the `Servicing` protocol. A service can be its own definition, or you can use a separate struct/enum as a "token" to resolve a protocol.
+You can define a service using a class, struct, or protocol.
 
 ```swift
 import Hummingbird
 
-class MyService: Servicing {
-    typealias Service = MyService
-    
-    func service(using provider: ServiceProvider) -> MyService {
-        return self
-    }
-    
+protocol MyServicing: Sendable {
+    func performTask()
+}
+
+class MyService: MyServicing {
     func performTask() {
         print("Task performed!")
     }
@@ -60,9 +58,14 @@ You can register services as singletons or transients.
 ServiceProvider.shared.registerSingleton(MyService())
 ```
 
+**Singleton (Protocol Mapping):**
+```swift
+ServiceProvider.shared.registerSingleton(MyService(), for: (any MyServicing).self)
+```
+
 **Singleton (Lazy/Factory):**
 ```swift
-ServiceProvider.shared.registerSingleton(MyService.self) { provider in
+ServiceProvider.shared.registerSingleton(MyServicing.self) { provider in
     return MyService()
 }
 ```
@@ -80,8 +83,7 @@ Inject the service into your application code using the `@Service` property wrap
 
 ```swift
 class MyController {
-    @Service<MyService>
-    var myService: MyService
+    @Service var myService: any MyServicing
 
     func doSomething() {
         myService.performTask()
@@ -91,32 +93,24 @@ class MyController {
 
 ## Advanced Usage
 
-### Protocol-Oriented Injection
+### Protocols with Associated Types (PATs)
 
-Define a protocol and a service "token" that conforms to `Servicing`.
+If you have a protocol with associated types, you can inject it directly using `@Service`.
 
 ```swift
-protocol Database {
-    func save()
-}
-
-struct DatabaseService: Servicing {
-    typealias Service = Database
-    
-    func service(using provider: ServiceProvider) -> Database {
-        return RealDatabase()
-    }
+protocol Repository<T> {
+    associatedtype T
+    func fetch() -> [T]
 }
 
 // Registration
-ServiceProvider.shared.registerSingleton(DatabaseService.self) { provider in
-    return RealDatabase()
+ServiceProvider.shared.registerSingleton((any Repository<String>).self) { _ in
+    UserRepository()
 }
 
 // Injection
-class MyRepo {
-    @Service<DatabaseService>
-    var db: Database
+class UserConsumer {
+    @Service var repo: any Repository<String>
 }
 ```
 

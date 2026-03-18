@@ -1,7 +1,6 @@
 import Foundation
 
-/// The foundational protocol that all services must implement.
-/// It defines the service type and how it is created.
+/// The foundational protocol that all services must implement if they wish to provide themselves as a service.
 public protocol Servicing {
     /// The type of the service being provided.
     associatedtype Service
@@ -38,61 +37,72 @@ public final class ServiceProvider: @unchecked Sendable {
     
     public init() {}
     
-    /// Registers a service as a singleton with a pre-existing instance.
-    public func registerSingleton<T: Servicing>(_ instance: T.Service, for serviceType: T.Type) {
+    // MARK: - Type-based Registration
+    
+    /// Registers a service as a singleton using the service type itself as the key.
+    public func registerSingleton<T>(_ instance: T, for serviceType: T.Type = T.self) {
         lock.lock()
         defer { lock.unlock() }
-        let id = ObjectIdentifier(T.self)
-        let typeName = String(describing: T.self)
+        let id = ObjectIdentifier(serviceType)
+        let typeName = String(describing: serviceType)
         instances[id] = instance
         registrations[id] = Registration(typeName: typeName, factory: { _ in instance }, lifecycle: .singleton)
     }
+    
+    /// Registers a service as a singleton with a factory closure using the service type as the key.
+    public func registerSingleton<T>(_ serviceType: T.Type = T.self, factory: @escaping (ServiceProvider) -> T) {
+        lock.lock()
+        defer { lock.unlock() }
+        let id = ObjectIdentifier(serviceType)
+        let typeName = String(describing: serviceType)
+        registrations[id] = Registration(typeName: typeName, factory: factory, lifecycle: .singleton)
+        instances.removeValue(forKey: id)
+    }
+    
+    /// Registers a service as a transient instance with a factory closure using the service type as the key.
+    public func registerTransient<T>(_ serviceType: T.Type = T.self, factory: @escaping (ServiceProvider) -> T) {
+        lock.lock()
+        defer { lock.unlock() }
+        let id = ObjectIdentifier(serviceType)
+        let typeName = String(describing: serviceType)
+        registrations[id] = Registration(typeName: typeName, factory: factory, lifecycle: .transient)
+        instances.removeValue(forKey: id)
+    }
+    
+    /// Registers a service with a factory closure using the service type as the key (defaults to transient).
+    public func register<T>(_ serviceType: T.Type = T.self, factory: @escaping (ServiceProvider) -> T) {
+        registerTransient(serviceType, factory: factory)
+    }
+    
+    // MARK: - Token-based Registration (Convenience for Servicing types)
     
     /// Registers a service as a singleton where the service is its own provider.
     public func registerSingleton<T: Servicing>(_ service: T) where T.Service == T {
         registerSingleton(service, for: T.self)
     }
     
-    /// Registers a service as a singleton with a factory closure.
-    public func registerSingleton<T: Servicing>(_ serviceType: T.Type, factory: @escaping (ServiceProvider) -> T.Service) {
-        lock.lock()
-        defer { lock.unlock() }
-        let id = ObjectIdentifier(T.self)
-        let typeName = String(describing: T.self)
-        registrations[id] = Registration(typeName: typeName, factory: factory, lifecycle: .singleton)
-        instances.removeValue(forKey: id) // Clear any previous instance
+    /// Registers a service as a singleton using a Servicing token.
+    public func registerSingleton<T: Servicing>(_ token: T.Type, factory: @escaping (ServiceProvider) -> T.Service) {
+        registerSingleton(T.Service.self, factory: factory)
     }
     
-    /// Registers a service as a transient instance with a factory closure.
-    public func registerTransient<T: Servicing>(_ serviceType: T.Type, factory: @escaping (ServiceProvider) -> T.Service) {
-        lock.lock()
-        defer { lock.unlock() }
-        let id = ObjectIdentifier(T.self)
-        let typeName = String(describing: T.self)
-        registrations[id] = Registration(typeName: typeName, factory: factory, lifecycle: .transient)
-        instances.removeValue(forKey: id)
-    }
-    
-    /// Registers a service with a factory closure (defaults to transient).
-    public func register<T: Servicing>(_ serviceType: T.Type, factory: @escaping (ServiceProvider) -> T.Service) {
-        registerTransient(serviceType, factory: factory)
-    }
+    // MARK: - Resolution
     
     /// Resolves a service of the given type.
-    public func resolve<T: Servicing>(_ serviceType: T.Type) -> T.Service {
-        let id = ObjectIdentifier(T.self)
+    public func resolve<T>(_ serviceType: T.Type = T.self) -> T {
+        let id = ObjectIdentifier(serviceType)
         
         lock.lock()
         
         // Check for already instantiated singleton
-        if let instance = instances[id] as? T.Service {
+        if let instance = instances[id] as? T {
             lock.unlock()
             return instance
         }
         
         guard let registration = registrations[id] else {
             lock.unlock()
-            fatalError("Hummingbird: Service \(T.self) not registered")
+            fatalError("Hummingbird: Service type \(serviceType) not registered")
         }
         
         // Circular dependency detection
@@ -118,9 +128,9 @@ public final class ServiceProvider: @unchecked Sendable {
         // Create the instance
         let instance = registration.factory(self)
         
-        guard let typedInstance = instance as? T.Service else {
+        guard let typedInstance = instance as? T else {
             lock.unlock()
-            fatalError("Hummingbird: Factory for \(T.self) returned incompatible type \(type(of: instance))")
+            fatalError("Hummingbird: Factory for \(serviceType) returned incompatible type \(type(of: instance))")
         }
         
         if registration.lifecycle == .singleton {
@@ -132,12 +142,12 @@ public final class ServiceProvider: @unchecked Sendable {
     }
 }
 
-/// A property wrapper that provides easy access to registered services.
+/// A property wrapper that provides easy access to registered services by their type.
 @propertyWrapper
-public struct Service<T: Servicing>: Sendable {
+public struct Service<T>: Sendable {
     private let provider: ServiceProvider
     
-    public var wrappedValue: T.Service {
+    public var wrappedValue: T {
         return provider.resolve(T.self)
     }
     
