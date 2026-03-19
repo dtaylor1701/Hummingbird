@@ -80,6 +80,11 @@ public final class ServiceProvider: @unchecked Sendable {
     public func registerSingleton<T: Servicing>(_ service: T) where T.Service == T {
         registerSingleton(service, for: T.self)
     }
+
+    /// Registers a service as a singleton using its Servicing provider.
+    public func registerSingleton<T: Servicing>(_ provider: T) {
+        registerSingleton(provider.service(using: self), for: T.Service.self)
+    }
     
     /// Registers a service as a singleton using a Servicing token.
     public func registerSingleton<T: Servicing>(_ token: T.Type, factory: @escaping (ServiceProvider) -> T.Service) {
