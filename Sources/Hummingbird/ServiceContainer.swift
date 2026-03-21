@@ -61,7 +61,11 @@ public final class ServiceContainer: @unchecked Sendable {
         lock.unlock()
         
         guard let registration = registration else {
-            fatalError("Service '\(type)' is not registered.")
+            if self === ServiceContainer.shared {
+                fatalError("Service '\(type)' is not registered in the shared container. This usually happens because no @DependencyGraph has been initialized or 'run { ... }' hasn't been called to set an active container.")
+            } else {
+                fatalError("Service '\(type)' is not registered in the current container.")
+            }
         }
         
         if registration.scope == .singleton {
