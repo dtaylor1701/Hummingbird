@@ -137,7 +137,14 @@ public struct DependencyGraphMacro: MemberMacro {
         }
         """
         
-        var allDecls: [DeclSyntax] = [containerDecl, initDecl, runDecl]
+        // 8. makeShared method
+        let makeSharedDecl: DeclSyntax = """
+        \(raw: prefix)func makeShared() {
+            self.container.makeShared()
+        }
+        """
+        
+        var allDecls: [DeclSyntax] = [containerDecl, initDecl, runDecl, makeSharedDecl]
         allDecls.append(contentsOf: methodPropertyDecls)
         
         return allDecls

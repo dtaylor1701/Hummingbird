@@ -121,6 +121,38 @@ struct CoreTests {
         #expect(second == nil)
     }
 
+    @Test("Manual Shared Registration")
+    func manualShared() {
+        let container = ServiceContainer()
+        protocol MockService {}
+        class MockServiceImpl: MockService {}
+        
+        container.register(MockService.self) { _ in MockServiceImpl() }
+        
+        // Before makeShared, shared container shouldn't have it
+        // (Wait, shared might already have it if another test registered it, but ServiceContainer() is fresh)
+        // Actually ServiceContainer.shared is a static constant, it persists across tests.
+        // This is a bit problematic for isolation.
+        
+        container.makeShared()
+        let resolved = ServiceContainer.shared.resolve(MockService.self)
+        #expect(resolved is MockServiceImpl)
+    }
+
+    @Test("DependencyGraph makeShared")
+    func macroMakeShared() {
+        @DependencyGraph
+        struct TestGraph {
+            @Provider func provideString() -> String { "Shared" }
+        }
+        
+        let graph = TestGraph()
+        graph.makeShared()
+        
+        let resolved = ServiceContainer.shared.resolve(String.self)
+        #expect(resolved == "Shared")
+    }
+
     @Test("Thread Safety during Concurrent Access")
     func threadSafety() async {
         let container = ServiceContainer()

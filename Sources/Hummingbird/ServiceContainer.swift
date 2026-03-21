@@ -31,6 +31,20 @@ public final class ServiceContainer: @unchecked Sendable {
         // Note: Last registration for a type wins.
         registrations[id] = Registration(scope: scope, factory: factory)
     }
+
+    /// Copies all registrations from this container to the shared container.
+    public func makeShared() {
+        ServiceContainer.shared.lock.lock()
+        self.lock.lock()
+        defer {
+            self.lock.unlock()
+            ServiceContainer.shared.lock.unlock()
+        }
+        
+        for (id, registration) in registrations {
+            ServiceContainer.shared.registrations[id] = registration
+        }
+    }
     
     public func resolve<T>(_ type: T.Type) -> T {
         let id = ObjectIdentifier(type)
