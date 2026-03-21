@@ -79,6 +79,48 @@ struct CoreTests {
         #expect(a is ServiceAImpl)
     }
     
+    @Test("Singleton Concurrency Test")
+    func singletonConcurrency() async {
+        let container = ServiceContainer()
+        
+        protocol ServiceA {}
+        protocol ServiceB {}
+        
+        class ServiceAImpl: ServiceA { init() { Thread.sleep(forTimeInterval: 0.01) } }
+        class ServiceBImpl: ServiceB { init() { Thread.sleep(forTimeInterval: 0.01) } }
+        
+        container.register(ServiceA.self, scope: .singleton) { _ in ServiceAImpl() }
+        container.register(ServiceB.self, scope: .singleton) { _ in ServiceBImpl() }
+        
+        await withTaskGroup(of: Void.self) { group in
+            group.addTask { _ = container.resolve(ServiceA.self) }
+            group.addTask { _ = container.resolve(ServiceB.self) }
+            group.addTask { _ = container.resolve(ServiceA.self) }
+            group.addTask { _ = container.resolve(ServiceB.self) }
+        }
+        
+        #expect(container.resolve(ServiceA.self) is ServiceAImpl)
+        #expect(container.resolve(ServiceB.self) is ServiceBImpl)
+    }
+
+    @Test("Singleton Nil Caching")
+    func singletonNilCaching() {
+        let container = ServiceContainer()
+        var count = 0
+        
+        container.register(String?.self, scope: .singleton) { _ in
+            count += 1
+            return nil
+        }
+        
+        let first = container.resolve(String?.self)
+        let second = container.resolve(String?.self)
+        
+        #expect(count == 1)
+        #expect(first == nil)
+        #expect(second == nil)
+    }
+
     @Test("Thread Safety during Concurrent Access")
     func threadSafety() async {
         let container = ServiceContainer()

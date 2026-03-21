@@ -1,5 +1,3 @@
-import Foundation
-
 /// A macro that turns a type into a dependency injection graph.
 /// It generates a storage container, an initializer, and computed properties.
 @attached(member, names: named(init), named(container), named(run), arbitrary)

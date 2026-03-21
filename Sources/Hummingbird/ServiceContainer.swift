@@ -17,6 +17,7 @@ public final class ServiceContainer: @unchecked Sendable {
     
     private var registrations: [ObjectIdentifier: Registration] = [:]
     private let lock = NSRecursiveLock()
+    private let singletonLock = NSRecursiveLock()
     
     private static let resolutionStackKey = "com.hummingbird.resolutionStack"
     
@@ -63,8 +64,15 @@ public final class ServiceContainer: @unchecked Sendable {
             fatalError("Service '\(type)' is not registered.")
         }
         
-        let instance = registration.resolve(within: self)
-        return instance as! T
+        if registration.scope == .singleton {
+            singletonLock.lock()
+            defer { singletonLock.unlock() }
+            let instance = registration.resolve(within: self)
+            return instance as! T
+        } else {
+            let instance = registration.resolve(within: self)
+            return instance as! T
+        }
     }
 }
 
@@ -73,7 +81,6 @@ extension ServiceContainer {
         let scope: ServiceScope
         let factory: (ServiceContainer) -> Any
         private var instance: Any?
-        private let lock = NSRecursiveLock()
         
         init(scope: ServiceScope, factory: @escaping (ServiceContainer) -> Any) {
             self.scope = scope
@@ -85,15 +92,12 @@ extension ServiceContainer {
             case .transient:
                 return factory(container)
             case .singleton:
-                lock.lock()
                 if let existing = instance {
-                    lock.unlock()
                     return existing
                 }
                 
                 let newInstance = factory(container)
                 instance = newInstance
-                lock.unlock()
                 return newInstance
             }
         }

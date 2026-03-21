@@ -91,9 +91,10 @@ public struct DependencyGraphMacro: MemberMacro {
         let initParams = storedProperties.map { "\($0.0): \($0.1)" }.joined(separator: ", ")
         let initAssignments = storedProperties.map { "self.\($0.0) = \($0.0)" }.joined(separator: "\n        ")
         
-        let captureSetup = isStruct ? "let _graph = self" : ""
-        let capturedName = isStruct ? "_graph" : "self"
-        let captureList = isClass ? "[unowned self]" : ""
+        let hasMethodProviders = !methodProviders.isEmpty
+        let captureSetup = (hasMethodProviders && isStruct) ? "let _graph = self" : ""
+        let capturedName = (hasMethodProviders && isStruct) ? "_graph" : "self"
+        let captureList = (hasMethodProviders && isClass) ? "[unowned self]" : ""
         
         let methodRegistrationLines = methodProviders.map { (name, type, scope) in
             "self.container.register(\(type).self, scope: \(scope)) { \(captureList) (_: ServiceContainer) in \(capturedName).\(name)() }"
@@ -103,12 +104,17 @@ public struct DependencyGraphMacro: MemberMacro {
             "self.container.register(\(protocolType).self, scope: \(scope)) { _ in \(implementationType)() }"
         }.joined(separator: "\n        ")
         
+        var initBodyLines: [String] = []
+        if !initAssignments.isEmpty { initBodyLines.append(initAssignments) }
+        if !captureSetup.isEmpty { initBodyLines.append(captureSetup) }
+        if !methodRegistrationLines.isEmpty { initBodyLines.append(methodRegistrationLines) }
+        if !implementedRegistrationLines.isEmpty { initBodyLines.append(implementedRegistrationLines) }
+        
+        let initBody = initBodyLines.joined(separator: "\n        ")
+        
         let initDecl: DeclSyntax = """
         \(raw: prefix)init(\(raw: initParams)) {
-            \(raw: initAssignments)
-            \(raw: captureSetup)
-            \(raw: methodRegistrationLines)
-            \(raw: implementedRegistrationLines)
+            \(raw: initBody)
         }
         """
         
