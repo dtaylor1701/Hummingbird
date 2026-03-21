@@ -35,10 +35,19 @@ A method-level macro for custom initialization with a specific scope.
 func provideNetwork() -> NetworkService { ... }
 ```
 
+### 3.5 Global Registration (`makeShared()`)
+While Hummingbird prioritizes context-aware resolution via `TaskLocal`, some execution contexts (like detached `Task` blocks) do not inherit this state. For these cases, `makeShared()` allows you to register a graph's services globally in the `ServiceContainer.shared` registry.
+
+```swift
+let graph = AppGraph()
+graph.makeShared()
+```
+
 ---
 
 ## 4. Swapping & Mocking Strategies
 (See README.md for detailed examples)
-- Protocol-Based Swapping
-- Configurable Graphs
-- Context-Aware Swapping (`graph.run { ... }`)
+- **Protocol-Based Swapping**: Define a common interface for multiple graph implementations.
+- **Configurable Graphs**: Pass flags or configuration to a single graph to determine which implementations to register.
+- **Context-Aware Swapping**: Use `graph.run { ... }` to temporarily override the active container for a specific execution block.
+- **Global Override**: Use `makeShared()` during app initialization to set the default services for the entire application.
