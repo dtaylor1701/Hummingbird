@@ -2,9 +2,25 @@ import Testing
 import Foundation
 @testable import Hummingbird
 
-@Suite("Core Registry Tests")
+@Suite("Core Registry Tests", .serialized)
 struct CoreTests {
     
+    init() {
+        ServiceContainer.shared.reset()
+    }
+
+    @Test("Automatic Shared Registration")
+    func automaticShared() {
+        @DependencyGraph
+        struct TestGraph {
+            @Provider func provideString() -> String { "Auto" }
+        }
+        
+        _ = TestGraph()
+        let resolved = ServiceContainer.shared.resolve(String.self)
+        #expect(resolved == "Auto")
+    }
+
     @Test("Basic Registration and Resolution")
     func registration() {
         let container = ServiceContainer()

@@ -110,6 +110,8 @@ public struct DependencyGraphMacro: MemberMacro {
         if !methodRegistrationLines.isEmpty { initBodyLines.append(methodRegistrationLines) }
         if !implementedRegistrationLines.isEmpty { initBodyLines.append(implementedRegistrationLines) }
         
+        initBodyLines.append("self.makeShared()")
+        
         let initBody = initBodyLines.joined(separator: "\n        ")
         
         let initDecl: DeclSyntax = """

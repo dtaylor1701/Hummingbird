@@ -2,8 +2,12 @@ import Testing
 import Hummingbird
 import Foundation
 
-@Suite("Dependency Graph Macro Tests")
+@Suite("Dependency Graph Macro Tests", .serialized)
 struct GraphTests {
+    
+    init() {
+        ServiceContainer.shared.reset()
+    }
     
     // --- Mocking Setup ---
     protocol MessageService { func getMessage() -> String }
@@ -100,8 +104,12 @@ class ScopingGraph {
     @Provider(scope: .transient) func provideTransient() -> TransientCounter { TransientCounter() }
 }
 
-@Suite("Scoping Verification")
+@Suite("Scoping Verification", .serialized)
 struct ScopingTests {
+    init() {
+        ServiceContainer.shared.reset()
+    }
+
     @Test("Singleton vs Transient Scopes")
     func verification() {
         SingletonCounter.count = 0

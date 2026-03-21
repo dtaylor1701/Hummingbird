@@ -49,22 +49,19 @@ class MainViewModel {
 ### 3. Initialize & Inject
 To make your graph available to `@Service` properties, you have two options:
 
-#### A. Global Registration
-Call `makeShared()` during app initialization to register the graph's services as the global default. This is ideal for most applications.
+#### A. Global (Default)
+Simply initializing your `@DependencyGraph` at app startup makes its services available globally. This is the recommended approach for most applications.
 
 ```swift
 @main
 struct MyApp: App {
+    // Services are automatically registered with ServiceContainer.shared
     let graph = AppGraph()
-    
-    init() {
-        graph.makeShared()
-    }
 }
 ```
 
-#### B. Context-Aware Injection
-Use `graph.run { ... }` to provide a specific graph's services to an entire execution block. This is perfect for unit tests or swapping contexts (e.g., development vs. production).
+#### B. Scoped (Overrides)
+Use `graph.run { ... }` to provide a specific graph's services to a specific execution block. This takes precedence over the global shared services and is ideal for unit tests or temporary overrides.
 
 ```swift
 func testLoginFlow() {

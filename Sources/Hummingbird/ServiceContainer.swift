@@ -45,6 +45,13 @@ public final class ServiceContainer: @unchecked Sendable {
             ServiceContainer.shared.registrations[id] = registration
         }
     }
+
+    /// Clears all registrations and cached singleton instances from this container.
+    public func reset() {
+        lock.lock()
+        defer { lock.unlock() }
+        registrations.removeAll()
+    }
     
     public func resolve<T>(_ type: T.Type) -> T {
         let id = ObjectIdentifier(type)
@@ -76,7 +83,7 @@ public final class ServiceContainer: @unchecked Sendable {
         
         guard let registration = registration else {
             if self === ServiceContainer.shared {
-                fatalError("Service '\(type)' is not registered in the shared container. This usually happens because no @DependencyGraph has been initialized or 'run { ... }' hasn't been called to set an active container.")
+                fatalError("Service '\(type)' is not registered in the shared container. This usually happens because no @DependencyGraph has been initialized.")
             } else {
                 fatalError("Service '\(type)' is not registered in the current container.")
             }

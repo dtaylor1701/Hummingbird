@@ -1,9 +1,13 @@
 import Testing
 import Hummingbird
 
-@Suite("Integration Tests")
+@Suite("Integration Tests", .serialized)
 struct IntegrationTests {
     
+    init() {
+        ServiceContainer.shared.reset()
+    }
+
     protocol Storage { func save(_ data: String) }
     class DiskStorage: Storage { var saved = ""; func save(_ data: String) { saved = "Disk: \(data)" } }
     class MockStorage: Storage { var saved = ""; func save(_ data: String) { saved = "Mock: \(data)" } }
@@ -32,7 +36,6 @@ struct IntegrationTests {
         // 1. Run in Live Context
         live.run {
             vm.performAction()
-            // We need to resolve from the container to check state since @Service is a getter
             let storage = live.container.resolve(Storage.self) as! DiskStorage
             #expect(storage.saved == "Disk: action")
         }
@@ -42,6 +45,25 @@ struct IntegrationTests {
             vm.performAction()
             let storage = mock.container.resolve(Storage.self) as! MockStorage
             #expect(storage.saved == "Mock: action")
+        }
+    }
+
+    @Test("Scoped Scoping overrides Shared")
+    func scopedOverridesShared() {
+        let live = LiveGraph() // Auto-registers with shared
+        let mock = TestGraph() // Auto-registers with shared (wins)
+        let vm = FeatureViewModel()
+        
+        // Default (shared) should be Mock because it was last initialized
+        vm.performAction()
+        let sharedStorage = ServiceContainer.shared.resolve(Storage.self) as! MockStorage
+        #expect(sharedStorage.saved == "Mock: action")
+        
+        // But .run should still use Live
+        live.run {
+            vm.performAction()
+            let scopedStorage = ServiceContainer.active?.resolve(Storage.self) as! DiskStorage
+            #expect(scopedStorage.saved == "Disk: action")
         }
     }
 }
