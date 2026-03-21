@@ -7,10 +7,6 @@
 - **Targets/Products**: Hummingbird, HummingbirdTests
 - **Top-level Directories**: Tests, Sources
 
-## Product
-
-@./Product.md
-
 ## Design
 
 @./Design.md
